@@ -17,6 +17,10 @@ end
 target 'MyTodo' do
   config = use_native_modules!
 
+use_frameworks! :linkage => :static
+$RNFirebaseAsStaticFramework = true
+use_modular_headers!
+
   use_react_native!(
     :path => config[:reactNativePath],
     # An absolute path to your application root.
@@ -30,5 +34,51 @@ target 'MyTodo' do
       :mac_catalyst_enabled => false,
       # :ccache_enabled => true
     )
+
+    rnfb_app_umbrella = File.join(__dir__, 'Pods', 'Target Support Files', 'RNFBApp', 'RNFBApp-umbrella.h')
+    rnfb_app_modulemap = File.join(__dir__, 'Pods', 'Target Support Files', 'RNFBApp', 'RNFBApp.modulemap')
+
+    if File.exist?(rnfb_app_umbrella)
+      File.write(rnfb_app_umbrella, <<~HEADER)
+        #ifdef __OBJC__
+        #import <UIKit/UIKit.h>
+        #else
+        #ifndef FOUNDATION_EXPORT
+        #if defined(__cplusplus)
+        #define FOUNDATION_EXPORT extern "C"
+        #else
+        #define FOUNDATION_EXPORT extern
+        #endif
+        #endif
+        #endif
+
+        #import "RNFBJSON.h"
+        #import "RNFBMeta.h"
+        #import "RNFBNullSentinelInterceptor.h"
+        #import "RNFBPreferences.h"
+        #import "RNFBVersion.h"
+
+        FOUNDATION_EXPORT double RNFBAppVersionNumber;
+        FOUNDATION_EXPORT const unsigned char RNFBAppVersionString[];
+      HEADER
+    end
+
+    if File.exist?(rnfb_app_modulemap)
+      File.write(rnfb_app_modulemap, <<~MODULEMAP)
+        framework module RNFBApp {
+          umbrella header "RNFBApp-umbrella.h"
+
+          textual header "RCTConvert+FIRApp.h"
+          textual header "RCTConvert+FIROptions.h"
+          textual header "RNFBAppModule.h"
+          textual header "RNFBRCTEventEmitter.h"
+          textual header "RNFBSharedUtils.h"
+          textual header "RNFBUtilsModule.h"
+
+          export *
+          module * { export * }
+        }
+      MODULEMAP
+    end
   end
 end
